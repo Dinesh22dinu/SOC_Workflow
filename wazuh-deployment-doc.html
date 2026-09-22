@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SOC Workflow with Full Integration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg: #060a07;
+    --panel: #0c130e;
+    --panel-2: #0f1712;
+    --line: #1c3320;
+    --line-bright: #2b5232;
+    --green-core: #35d962;
+    --green-bright: #6dffa0;
+    --green-dim: #8fae95;
+    --text: #cfe9d4;
+    --text-dim: #7c9782;
+    --amber: #e3c15c;
+    --red: #ff6b6b;
+    --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-padding-top: calc(env(safe-area-inset-top,0px) + 70px); scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at top left, rgba(53,217,98,0.06), transparent 45%),
+      radial-gradient(ellipse at bottom right, rgba(53,217,98,0.04), transparent 50%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--green-bright);}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    padding-top: env(safe-area-inset-top, 0px);
+    background:rgba(6,10,7,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar-inner{
+    max-width:920px; margin:0 auto; padding:14px 24px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    font-family:var(--font-mono); font-size:12.5px; color:var(--green-dim);
+  }
+  .topbar-inner .brand{color:var(--green-bright); font-weight:600; letter-spacing:0.02em;}
+  .topbar-inner nav{display:flex; gap:18px; overflow-x:auto; scrollbar-width:none;}
+  .topbar-inner nav::-webkit-scrollbar{display:none;}
+  .topbar-inner nav a{color:var(--text-dim); text-decoration:none; white-space:nowrap;}
+  .topbar-inner nav a:hover{color:var(--green-bright);}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    max-width:920px; margin:0 auto; padding:64px 24px 40px;
+    border-bottom:1px solid var(--line);
+  }
+  .hero .kicker{
+    font-family:var(--font-mono); font-size:13px; color:var(--green-core);
+    display:flex; align-items:center; gap:10px; margin-bottom:22px;
+  }
+  .hero .kicker .dot{width:8px;height:8px;border-radius:50%;background:var(--green-bright);
+    box-shadow:0 0 10px var(--green-bright);}
+  .hero h1{
+    font-size:clamp(30px, 5vw, 46px); line-height:1.12; margin:0 0 18px;
+    color:var(--green-bright); font-weight:700; letter-spacing:-0.01em;
+    text-shadow:0 0 22px rgba(109,255,160,0.18);
+    max-width:18ch;
+  }
+  .hero p.lede{font-size:16.5px; color:var(--text); max-width:62ch; margin:0 0 26px;}
+  .hero .meta{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden;
+  }
+  .hero .meta div{background:var(--panel); padding:14px 16px;}
+  .hero .meta .k{font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:5px;}
+  .hero .meta .v{font-size:14px; color:var(--text); font-weight:500;}
+
+  /* ---------- Layout ---------- */
+  main{max-width:920px; margin:0 auto; padding:0 24px 100px;}
+  section{padding:56px 0; border-bottom:1px solid var(--line);}
+  section:last-child{border-bottom:none;}
+
+  .sec-label{
+    font-family:var(--font-mono); font-size:12.5px; color:var(--green-core);
+    letter-spacing:0.04em; margin-bottom:10px;
+  }
+  h2{
+    font-size:clamp(22px,3.2vw,28px); color:var(--green-bright); margin:0 0 8px; font-weight:600;
+  }
+  h3{font-size:18px; color:var(--text); margin:32px 0 10px; font-weight:600; border-left:3px solid var(--green-core); padding-left:12px;}
+  .sec-intro{color:var(--text-dim); max-width:70ch; margin:14px 0 30px; font-size:15px;}
+  p{max-width:74ch;}
+  ul, ol{max-width:74ch; padding-left:22px;}
+  li{margin:6px 0;}
+
+  /* ---------- Cards / grids ---------- */
+  .grid-3{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:20px 0;}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px 18px 16px;
+  }
+  .card .tag{font-family:var(--font-mono); font-size:10.5px; color:var(--green-core); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;}
+  .card h4{margin:0 0 8px; font-size:16px; color:var(--text);}
+  .card p{margin:0; font-size:13.5px; color:var(--text-dim); max-width:none;}
+
+  /* ---------- Code blocks ---------- */
+  .steps{counter-reset:step; margin:22px 0;}
+  .step{
+    position:relative; padding:18px 18px 18px 56px; margin-bottom:2px;
+    border-left:1px solid var(--line-bright);
+  }
+  .step:before{
+    counter-increment:step; content:counter(step);
+    position:absolute; left:-15px; top:16px;
+    width:30px; height:30px; border-radius:50%;
+    background:var(--panel-2); border:1px solid var(--green-core); color:var(--green-bright);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mono); font-size:13px; font-weight:600;
+  }
+  .step h5{margin:2px 0 6px; font-size:14.5px; color:var(--text); font-weight:600;}
+  .step p{margin:0 0 10px; font-size:13.5px; color:var(--text-dim);}
+  pre{
+    background:#040705; border:1px solid var(--line); border-radius:6px;
+    padding:13px 15px; overflow-x:auto; margin:0;
+    font-family:var(--font-mono); font-size:12.8px; color:var(--green-bright);
+    line-height:1.55;
+  }
+  code{font-family:var(--font-mono); font-size:0.92em; color:var(--green-bright);}
+  p code, li code{background:rgba(53,217,98,0.08); padding:1px 5px; border-radius:3px;}
+
+  /* ---------- Tabs (deployment types) ---------- */
+  .tabs{display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 6px;}
+  .tab-btn{
+    font-family:var(--font-mono); font-size:12.5px; padding:8px 14px; border-radius:5px;
+    border:1px solid var(--line-bright); background:var(--panel); color:var(--text-dim);
+    cursor:pointer;
+  }
+  .tab-btn.active{background:rgba(53,217,98,0.12); color:var(--green-bright); border-color:var(--green-core);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* ---------- Diagram ---------- */
+  .diagram-wrap{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:18px; margin:22px 0; overflow-x:auto;
+  }
+  .diagram-caption{font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim); margin-top:10px; text-align:center;}
+
+  /* ---------- Table ---------- */
+  table{width:100%; border-collapse:collapse; margin:18px 0; font-size:13.5px;}
+  th,td{border:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top;}
+  th{background:var(--panel-2); color:var(--green-bright); font-family:var(--font-mono); font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em;}
+  td{color:var(--text);}
+  .sev-critical{color:var(--red); font-weight:600;}
+  .sev-high{color:#ff9b5c; font-weight:600;}
+  .sev-medium{color:var(--amber); font-weight:600;}
+
+  .note{
+    border:1px solid var(--line-bright); border-left:3px solid var(--green-core);
+    background:rgba(53,217,98,0.05); border-radius:0 6px 6px 0;
+    padding:12px 16px; font-size:13.5px; color:var(--text-dim); margin:18px 0; max-width:74ch;
+  }
+  .note b{color:var(--green-bright);}
+
+  footer{
+    max-width:920px; margin:0 auto; padding:34px 24px calc(40px + env(safe-area-inset-bottom,0px));
+    font-family:var(--font-mono); font-size:11.5px; color:var(--text-dim);
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  }
+
+  @media (max-width:640px){
+    .topbar-inner nav{gap:12px;}
+    .step{padding-left:46px;}
+    .step:before{width:26px;height:26px;left:-13px;font-size:12px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">// SOC_WORKFLOW</span>
+    <nav>
+      <a href="#overview">Overview</a>
+      <a href="#deployment">Wazuh Deployment</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#workflow">Alert Workflow</a>
+      <a href="#zammad-deployment">Zammad Deployment</a>
+      <a href="#integrations">Integrations</a>
+    </nav>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="kicker"><span class="dot"></span>SIEM &nbsp;/&nbsp; SOC DOCUMENTATION</div>
+  <h1>SOC Workflow with Full Integration</h1>
+  <p class="lede">A reference guide covering Wazuh installation, its data pipeline from endpoint to analyst, and the full SOC integration chain — Zammad ticketing and email alerting — through to L1/L2 response.</p>
+  <div class="meta">
+    <div><div class="k">Platform</div><div class="v">Wazuh SIEM / XDR</div></div>
+    <div><div class="k">Scope</div><div class="v">Install · Architecture · Workflow · Integration</div></div>
+    <div><div class="k">Integrations</div><div class="v">Email · Zammad</div></div>
+  </div>
+</div>
+
+<main>
+
+  <!-- ============ OVERVIEW ============ -->
+  <section id="overview">
+    <div class="sec-label">01 / OVERVIEW</div>
+    <h2>What Wazuh Does</h2>
+    <p class="sec-intro">Wazuh is an open-source security platform combining SIEM (Security Information and Event Management) and XDR (Extended Detection and Response) capabilities. It is made of a lightweight agent installed on endpoints and three central components that receive, store, and analyze that data.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="tag">Component</div>
+        <h4>Wazuh Agent</h4>
+        <p>Runs on the monitored endpoint. Collects logs, file integrity events, system inventory, and security telemetry, then forwards it to the central components.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Component</div>
+        <h4>Wazuh Indexer</h4>
+        <p>Stores and indexes incoming security data (built on OpenSearch), making it searchable and available for correlation and dashboards.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Component</div>
+        <h4>Wazuh Manager</h4>
+        <p>Applies rules and decoders to indexed data, classifies events by severity, and triggers the alerting pipeline.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DEPLOYMENT ============ -->
+  <section id="deployment">
+    <div class="sec-label">02 / INSTALLATION &amp; DEPLOYMENT</div>
+    <h2>Deployment Types &amp; Step-by-Step Installation</h2>
+    <p class="sec-intro">Wazuh supports three main deployment models depending on scale. Each is outlined below with the ordered commands used to stand it up on a Linux host (Ubuntu/RHEL family). Replace <code>&lt;X.Y&gt;</code> with the current Wazuh release version from the official documentation before running these.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="t1">All-in-One (Single Node)</button>
+      <button class="tab-btn" data-tab="t2">Distributed (Multi-Node)</button>
+      <button class="tab-btn" data-tab="t3">Docker Deployment</button>
+      <button class="tab-btn" data-tab="t4">Agent Enrollment</button>
+    </div>
+
+    <!-- TAB 1: single node -->
+    <div class="tab-panel active" id="t1">
+      <p class="sec-intro" style="margin-top:16px;">Installs the indexer, manager, and dashboard together on a single host using the official installation assistant. Suitable for monitoring up to ~100 endpoints.</p>
+      <div class="steps">
+        <div class="step">
+          <h5>Step 1 — Prepare the host</h5>
+          <p>Update packages and open the required ports (443 dashboard, 1514 agent events, 1515 enrollment).</p>
+          <pre>sudo apt update && sudo apt install -y curl gnupg ca-certificates
+sudo ufw allow 443/tcp
+sudo ufw allow 1514/tcp
+sudo ufw allow 1515/tcp</pre>
+        </div>
+        <div class="step">
+          <h5>Step 2 — Download the installation assistant</h5>
+          <p>Fetch the official installer script for the target version.</p>
+          <pre>curl -sO https://packages.wazuh.com/&lt;X.Y&gt;/wazuh-install.sh</pre>
+        </div>
+        <div class="step">
+          <h5>Step 3 — Run the all-in-one install</h5>
+          <p>The <code>-a</code> flag installs indexer + manager + dashboard on this host; <code>-i</code> shows the summary inline.</p>
+          <pre>sudo bash ./wazuh-install.sh -a -i</pre>
+        </div>
+        <div class="step">
+          <h5>Step 4 — Retrieve the generated credentials</h5>
+          <p>The installer prints the <code>admin</code> password at the end. If missed, extract it from the archive it generates.</p>
+          <pre>sudo tar -O -xvf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt</pre>
+        </div>
+        <div class="step">
+          <h5>Step 5 — Access the dashboard</h5>
+          <p>Log in from a browser using the admin credentials retrieved above.</p>
+          <pre>https://&lt;server-ip&gt;:443</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: distributed -->
+    <div class="tab-panel" id="t2">
+      <p class="sec-intro" style="margin-top:16px;">Splits the indexer, manager (server), and dashboard across separate nodes for high availability and horizontal scale — recommended beyond ~100 endpoints.</p>
+      <div class="steps">
+        <div class="step">
+          <h5>Step 1 — Download the installer and config template</h5>
+          <p>Run on the node that will generate certificates and config (commonly the first indexer node).</p>
+          <pre>curl -sO https://packages.wazuh.com/&lt;X.Y&gt;/wazuh-install.sh
+curl -sO https://packages.wazuh.com/&lt;X.Y&gt;/config.yml</pre>
+        </div>
+        <div class="step">
+          <h5>Step 2 — Define the cluster topology</h5>
+          <p>Edit <code>config.yml</code> and list each indexer, server (manager), and dashboard node with its name and IP.</p>
+          <pre>nano config.yml
+# nodes: indexer[], server[], dashboard[]</pre>
+        </div>
+        <div class="step">
+          <h5>Step 3 — Generate certificates and config files</h5>
+          <pre>bash wazuh-install.sh --generate-config-files</pre>
+        </div>
+        <div class="step">
+          <h5>Step 4 — Install each component on its own node</h5>
+          <p>Copy the generated <code>wazuh-install-files.tar</code> to every node, then run the matching flag on each.</p>
+          <pre>bash wazuh-install.sh --wazuh-indexer node-1
+bash wazuh-install.sh --wazuh-server wazuh-1
+bash wazuh-install.sh --wazuh-dashboard dashboard</pre>
+        </div>
+        <div class="step">
+          <h5>Step 5 — Verify the cluster</h5>
+          <p>Confirm the indexer cluster is healthy before onboarding agents.</p>
+          <pre>curl -k -u admin:&lt;password&gt; https://&lt;indexer-ip&gt;:9200/_cluster/health?pretty</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: docker -->
+    <div class="tab-panel" id="t3">
+      <p class="sec-intro" style="margin-top:16px;">Runs the Wazuh stack as containers using the official <code>wazuh-docker</code> repository — useful for labs, testing, or containerized environments.</p>
+      <div class="steps">
+        <div class="step">
+          <h5>Step 1 — Clone the official Docker repository</h5>
+          <pre>git clone https://github.com/wazuh/wazuh-docker.git -b v&lt;X.Y&gt;
+cd wazuh-docker/single-node</pre>
+        </div>
+        <div class="step">
+          <h5>Step 2 — Generate certificates</h5>
+          <pre>docker-compose -f generate-indexer-certs.yml run --rm generator</pre>
+        </div>
+        <div class="step">
+          <h5>Step 3 — Start the stack</h5>
+          <p>Brings up the indexer, manager, and dashboard containers together.</p>
+          <pre>docker-compose up -d</pre>
+        </div>
+        <div class="step">
+          <h5>Step 4 — Confirm all containers are healthy</h5>
+          <pre>docker ps
+docker logs single-node-wazuh.manager-1</pre>
+        </div>
+        <div class="step">
+          <h5>Step 5 — Access the dashboard</h5>
+          <pre>https://localhost:443   # default: admin / SecretPassword (change immediately)</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: agent -->
+    <div class="tab-panel" id="t4">
+      <p class="sec-intro" style="margin-top:16px;">Once the central components are up, endpoints are enrolled by installing the universal agent and pointing it at the manager.</p>
+      <div class="steps">
+        <div class="step">
+          <h5>Step 1 — Import the Wazuh GPG key</h5>
+          <pre>curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | \
+  gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import</pre>
+        </div>
+        <div class="step">
+          <h5>Step 2 — Add the Wazuh repository and install the agent</h5>
+          <pre>echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/&lt;X.Y&gt;/apt/ stable main" | \
+  sudo tee /etc/apt/sources.list.d/wazuh.list
+sudo apt update && sudo apt install wazuh-agent</pre>
+        </div>
+        <div class="step">
+          <h5>Step 3 — Point the agent at the manager</h5>
+          <pre>sudo sed -i "s/MANAGER_IP/&lt;wazuh-server-ip&gt;/" /var/ossec/etc/ossec.conf</pre>
+        </div>
+        <div class="step">
+          <h5>Step 4 — Enable and start the agent</h5>
+          <pre>sudo systemctl daemon-reload
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent</pre>
+        </div>
+        <div class="step">
+          <h5>Step 5 — Confirm enrollment from the dashboard</h5>
+          <p>The new endpoint should appear as <b>Active</b> under Agents within a minute of starting the service.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note"><b>Note —</b> Hardware sizing, exact package names, and version numbers change between releases. Always cross-check the version placeholder <code>&lt;X.Y&gt;</code> against the current release on the official Wazuh documentation before deploying to production.</div>
+  </section>
+
+  <!-- ============ ARCHITECTURE ============ -->
+  <section id="architecture">
+    <div class="sec-label">03 / SYSTEM ARCHITECTURE</div>
+    <h2>Data Flow: Endpoint to Severity Classification</h2>
+    <p class="sec-intro">Wazuh ingests data from two categories of sources at the endpoint layer, then moves it through the agent into the central pipeline where it is stored, analyzed, and classified.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="tag">Source Type</div>
+        <h4>Internal System Data</h4>
+        <p>OS logs, file integrity monitoring, running processes, configuration state, and user activity collected directly from the endpoint.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Source Type</div>
+        <h4>External Threat Intelligence</h4>
+        <p>Threat feeds and IOC data correlated against endpoint activity to flag known-malicious indicators.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Classification</div>
+        <h4>Rules &amp; Decoders</h4>
+        <p>The manager parses events with decoders and matches them against rules, assigning each event a severity level.</p>
+      </div>
+    </div>
+
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+graph TD
+  A1["Internal System Data"] --> AG["Wazuh Agent"]
+  A2["External Threat Intelligence"] --> AG
+  AG --> IDX["Wazuh Indexer"]
+  IDX --> MGR["Wazuh Manager"]
+  MGR -->|"Rules & Decoders"| SEV{"Severity Classification"}
+  SEV -->|"Critical"| C1["Critical Alert"]
+  SEV -->|"High"| C2["High Alert"]
+  SEV -->|"Medium"| C3["Medium Alert"]
+
+  classDef node fill:#0c130e,stroke:#2b5232,color:#cfe9d4,stroke-width:1px;
+  classDef sev fill:#0f1712,stroke:#35d962,color:#6dffa0,stroke-width:1.5px;
+  class A1,A2,AG,IDX,MGR node;
+  class SEV,C1,C2,C3 sev;
+      </pre>
+      <div class="diagram-caption">Fig. 1 — Endpoint data collection through severity classification</div>
+    </div>
+
+    <p>The pipeline starts at the endpoint, where two kinds of data feed into the Wazuh agent: internal system data (logs, file changes, running processes) generated by the machine itself, and external threat intelligence (known-bad IPs, hashes, domains) pulled in to give that internal activity context. The agent forwards both to the Wazuh indexer, which stores and indexes the incoming events so they're searchable. From there, the Wazuh manager reads the indexed data and runs it through its rules and decoders — decoders break a raw log line into structured fields, and rules match patterns against those fields. Whatever matches is classified into a severity level: Critical, High, or Medium, which determines how urgently it's handled downstream.</p>
+
+    <h3>Severity Levels</h3>
+    <table>
+      <tr><th>Level</th><th>Meaning</th><th>Typical Trigger</th></tr>
+      <tr><td class="sev-critical">Critical</td><td>Immediate, high-confidence threat</td><td>Confirmed intrusion, malware execution, matched threat-intel IOC</td></tr>
+      <tr><td class="sev-high">High</td><td>Strong indicator requiring prompt review</td><td>Privilege escalation attempts, repeated auth failures</td></tr>
+      <tr><td class="sev-medium">Medium</td><td>Anomalous but not immediately conclusive</td><td>Policy violations, unusual but explainable system changes</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ WORKFLOW ============ -->
+  <section id="workflow">
+    <div class="sec-label">04 / ALERT &amp; TICKETING WORKFLOW</div>
+    <h2>From Alert to Analyst Assignment</h2>
+    <p class="sec-intro">Once an event is classified, Wazuh triggers two parallel actions: an email notification and a log forwarded to Zammad, which raises a ticket routed to an L1 or L2 analyst.</p>
+
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+graph LR
+  SEV["Severity Assigned<br/>(Critical / High / Medium)"] --> EMAIL["Email Notification"]
+  SEV --> LOG["Log Forwarded to Zammad"]
+  LOG --> TICKET["Ticket Raised in Zammad"]
+  TICKET --> LOGIC{"Assignment Logic<br/>Experience + Severity"}
+  LOGIC --> L1["L1 Analyst"]
+  LOGIC --> L2["L2 Analyst"]
+
+  classDef node fill:#0c130e,stroke:#2b5232,color:#cfe9d4,stroke-width:1px;
+  classDef sev fill:#0f1712,stroke:#35d962,color:#6dffa0,stroke-width:1.5px;
+  class SEV,LOGIC sev;
+  class EMAIL,LOG,TICKET,L1,L2 node;
+      </pre>
+      <div class="diagram-caption">Fig. 2 — Alert notification and ticket assignment pipeline</div>
+    </div>
+
+    <p>Once the manager assigns a severity level, two things happen at the same time rather than one after the other. First, an email notification goes out to the SOC team so there's an immediate, human-readable heads-up. Second, the same event's log is sent to Zammad, the team's ticketing system. Zammad ingests that log and automatically raises a ticket from it — no analyst has to create it manually. The ticket is then routed to either an L1 or L2 analyst based on two factors together: how experienced that analyst is, and how severe the alert is. A Critical alert generally needs an analyst with more experience and response authority, while a Medium alert is well within standard first-line triage. This keeps the more serious findings from sitting in a queue behind an analyst who isn't yet equipped to act on them.</p>
+
+    <h3>Assignment Logic</h3>
+    <table>
+      <tr><th>Severity</th><th>Preferred Analyst Tier</th><th>Rationale</th></tr>
+      <tr><td class="sev-critical">Critical</td><td>L2 Analyst</td><td>Requires deeper investigation and response authority</td></tr>
+      <tr><td class="sev-high">High</td><td>L2, or experienced L1</td><td>Needs context-aware triage before escalation</td></tr>
+      <tr><td class="sev-medium">Medium</td><td>L1 Analyst</td><td>Standard triage within first-line scope</td></tr>
+    </table>
+
+    <ol>
+      <li>The Wazuh manager generates an alert once severity is assigned.</li>
+      <li>An email notification is sent to the SOC team at the same time the log is sent to Zammad.</li>
+      <li>Zammad automatically raises a ticket from the incoming log.</li>
+      <li>The ticket is routed to an L1 or L2 analyst based on their experience level and the alert's severity.</li>
+      <li>The assigned analyst investigates and updates the ticket status through resolution.</li>
+    </ol>
+
+    <div class="note"><b>Note —</b> Assignment thresholds (which severities route to L1 vs L2) should be tuned to the actual SOC team's staffing and experience distribution; the table above reflects a common baseline, not a fixed rule.</div>
+  </section>
+
+  <!-- ============ ZAMMAD DEPLOYMENT ============ -->
+  <section id="zammad-deployment">
+    <div class="sec-label">05 / ZAMMAD DEPLOYMENT</div>
+    <h2>Zammad Deployment Types &amp; Installation</h2>
+    <p class="sec-intro">Zammad is the ticketing system that receives Wazuh's forwarded logs and turns them into tickets. It can be deployed the same way Wazuh can — as a native package install, a container stack, or built from source — depending on how much control and customization the environment needs.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="z1">Package Installation</button>
+      <button class="tab-btn" data-tab="z2">Docker Installation</button>
+      <button class="tab-btn" data-tab="z3">Source Installation</button>
+    </div>
+
+    <!-- ZAMMAD TAB 1: package -->
+    <div class="tab-panel active" id="z1">
+      <p class="sec-intro" style="margin-top:16px;">Installs Zammad as a native service using the official package repository — the quickest path for a dedicated Ubuntu/Debian/CentOS host.</p>
+      <div class="steps">
+        <div class="step">
+          <h5>Step 1 — Add the Zammad repository key</h5>
+          <pre>wget -qO- https://dl.packager.io/srv/zammad/zammad/key | sudo apt-key add -</pre>
+        </div>
+        <div class="step">
+          <h5>Step 2 — Add the repository and install</h5>
+          <pre>echo "deb https://dl.packager.io/srv/deb/zammad/zammad/stable/ubuntu 22.04 main" | \
+  sudo tee /etc/apt/sources.list.d/zammad.list
+sudo apt update && sudo apt install zammad</pre>
+        </div>
+        <div class="step">
+          <h5>Step 3 — Enable and start the service</h5>
+          <pre>sudo systemctl enable zammad
+sudo systemctl start zammad</pre>
+        </div>
+        <div class="step">
+          <h5>Step 4 — Complete setup in the browser</h5>
+          <p>Zammad bundles nginx, PostgreSQL, and Elasticsearch/Redis as dependencies during install.</p>
+          <pre>http://&lt;server-ip&gt;:8080</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ZAMMAD TAB 2: docker -->
+    <div class="tab-panel" id="z2">
+      <p class="sec-intro" style="margin-top:16px;">Runs Zammad and its dependencies (PostgreSQL, Elasticsearch, Redis, Memcached) as containers using the official Docker Compose stack.</p>
+      <div class="steps">
+        <div class="step">
+          <h5>Step 1 — Clone the official Docker Compose repository</h5>
+          <pre>git clone https://github.com/zammad/zammad-docker-compose.git
+cd zammad-docker-compose</pre>
+        </div>
+        <div class="step">
+          <h5>Step 2 — Start the stack</h5>
+          <pre>docker-compose up -d</pre>
+        </div>
+        <div class="step">
+          <h5>Step 3 — Confirm all services are healthy</h5>
+          <pre>docker-compose ps</pre>
+        </div>
+        <div class="step">
+          <h5>Step 4 — Access the web UI</h5>
+          <pre>http://localhost:8080</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ZAMMAD TAB 3: source -->
+    <div class="tab-panel" id="z3">
+      <p class="sec-intro" style="margin-top:16px;">Builds Zammad from source — used when the platform needs to run on an unsupported OS or alongside custom Ruby tooling.</p>
+      <div class="steps">
+        <div class="step">
+          <h5>Step 1 — Install dependencies</h5>
+          <p>Ruby, PostgreSQL, Elasticsearch (or OpenSearch), Redis, and Node.js are required before building.</p>
+          <pre>sudo apt install -y ruby-full postgresql redis-server nodejs</pre>
+        </div>
+        <div class="step">
+          <h5>Step 2 — Clone the Zammad source</h5>
+          <pre>git clone https://github.com/zammad/zammad.git
+cd zammad</pre>
+        </div>
+        <div class="step">
+          <h5>Step 3 — Install gems and prepare the database</h5>
+          <pre>bundle install
+cp .dist.env .env
+bin/rails db:create db:migrate</pre>
+        </div>
+        <div class="step">
+          <h5>Step 4 — Start Zammad's services</h5>
+          <pre>script/background-worker.rb start
+script/websocket-server.rb start
+rails server</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="note"><b>Note —</b> Exact package names, repository URLs, and default ports shift between Zammad releases and OS versions — confirm the current values against Zammad's official documentation before deploying to production.</div>
+  </section>
+
+  <!-- ============ INTEGRATIONS ============ -->
+  <section id="integrations">
+    <div class="sec-label">06 / INTEGRATION METHODS</div>
+    <h2>Connecting Wazuh to Zammad and Email</h2>
+    <p class="sec-intro">Wazuh doesn't ship a built-in Zammad connector — the two are joined through a custom integration script — while email alerting is a built-in capability configured directly in Wazuh's own settings. Both are triggered from the same place: the manager, once it assigns a severity level to an alert.</p>
+
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+graph LR
+  MGR["Wazuh Manager<br/>(Alert Generated)"] --> INT["Custom Integration Script<br/>/var/ossec/integrations/"]
+  MGR --> MAIL["wazuh-maild<br/>(built-in)"]
+  INT -->|"REST API POST"| ZAPI["Zammad API<br/>/api/v1/tickets"]
+  MAIL -->|"SMTP"| SMTP["SMTP Relay"]
+  ZAPI --> TICKET["Ticket Created"]
+  SMTP --> INBOX["SOC Team Inbox"]
+
+  classDef node fill:#0c130e,stroke:#2b5232,color:#cfe9d4,stroke-width:1px;
+  classDef sev fill:#0f1712,stroke:#35d962,color:#6dffa0,stroke-width:1.5px;
+  class MGR sev;
+  class INT,MAIL,ZAPI,SMTP,TICKET,INBOX node;
+      </pre>
+      <div class="diagram-caption">Fig. 3 — Both integration paths originate from the same manager-side alert</div>
+    </div>
+
+    <h3>A. Wazuh → Zammad Integration</h3>
+    <p>Wazuh's manager supports custom integrations: a script placed under <code>/var/ossec/integrations/</code> that the manager invokes whenever an alert matches a configured rule level. For Zammad, that script formats the alert's JSON (rule description, agent name, severity, timestamp) into a ticket payload and posts it to Zammad's REST API, which creates the ticket automatically — no manual step in between.</p>
+    <div class="steps">
+      <div class="step">
+        <h5>Step 1 — Generate a Zammad API token</h5>
+        <p>Create a service account in Zammad and generate an API access token for it, used to authenticate the integration script's requests.</p>
+      </div>
+      <div class="step">
+        <h5>Step 2 — Add the integration script</h5>
+        <p>Place a custom script (e.g. <code>custom-zammad</code>) in the integrations directory that reads the alert JSON and calls the Zammad API.</p>
+        <pre>/var/ossec/integrations/custom-zammad</pre>
+      </div>
+      <div class="step">
+        <h5>Step 3 — Register the integration in ossec.conf</h5>
+        <p>Point the manager at the script and set the minimum severity level that should trigger a ticket.</p>
+        <pre>&lt;integration&gt;
+  &lt;name&gt;custom-zammad&lt;/name&gt;
+  &lt;hook_url&gt;https://&lt;zammad-host&gt;/api/v1/tickets&lt;/hook_url&gt;
+  &lt;api_key&gt;&lt;ZAMMAD_API_TOKEN&gt;&lt;/api_key&gt;
+  &lt;level&gt;7&lt;/level&gt;
+  &lt;alert_format&gt;json&lt;/alert_format&gt;
+&lt;/integration&gt;</pre>
+      </div>
+      <div class="step">
+        <h5>Step 4 — Restart the manager and test</h5>
+        <pre>sudo systemctl restart wazuh-manager</pre>
+        <p>Trigger a test alert at or above the configured level and confirm a ticket appears in Zammad.</p>
+      </div>
+    </div>
+
+    <h3>B. Wazuh → Email Integration</h3>
+    <p>Email alerting is native to Wazuh — it doesn't need a custom script. The manager's own mail process (<code>wazuh-maild</code>) sends an email for every alert at or above a configured severity level, relayed through whatever SMTP server is defined in the configuration.</p>
+    <div class="steps">
+      <div class="step">
+        <h5>Step 1 — Enable email notification</h5>
+        <p>In the manager's global configuration block, turn on notifications and set the recipient, sender, and SMTP relay.</p>
+        <pre>&lt;global&gt;
+  &lt;email_notification&gt;yes&lt;/email_notification&gt;
+  &lt;email_to&gt;soc-team@example.com&lt;/email_to&gt;
+  &lt;smtp_server&gt;smtp.example.com&lt;/smtp_server&gt;
+  &lt;email_from&gt;wazuh@example.com&lt;/email_from&gt;
+&lt;/global&gt;</pre>
+      </div>
+      <div class="step">
+        <h5>Step 2 — Set the alert threshold</h5>
+        <p>Restrict emails to alerts at or above a chosen severity so the inbox isn't flooded with low-value events.</p>
+        <pre>&lt;email_alert_level&gt;7&lt;/email_alert_level&gt;</pre>
+      </div>
+      <div class="step">
+        <h5>Step 3 — Restart the manager</h5>
+        <pre>sudo systemctl restart wazuh-manager</pre>
+      </div>
+      <div class="step">
+        <h5>Step 4 — Test delivery</h5>
+        <p>Trigger an alert above the threshold and confirm the email arrives at the configured address.</p>
+      </div>
+    </div>
+
+    <div class="note"><b>Note —</b> The Zammad integration script and the email SMTP settings both fire independently once the manager assigns severity — this is what makes the "email and log sent at the same time" behavior in Section 04 possible.</div>
+  </section>
+
+</main>
+
+<footer>
+  <span>SOC Workflow with Full Integration</span>
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad:true,
+    theme:'base',
+    themeVariables:{
+      background:'#060a07',
+      primaryColor:'#0c130e',
+      primaryTextColor:'#cfe9d4',
+      primaryBorderColor:'#2b5232',
+      lineColor:'#35d962',
+      secondaryColor:'#0f1712',
+      tertiaryColor:'#0f1712',
+      fontFamily:'JetBrains Mono, monospace',
+      fontSize:'13px'
+    }
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var target = btn.getAttribute('data-tab');
+      var group = btn.closest('.tabs');
+      group.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var panelsRoot = group.nextElementSibling ? group.parentElement : document;
+      // panels for this group live as siblings right after the .tabs block
+      var allPanelIds = Array.from(group.querySelectorAll('.tab-btn')).map(b => b.getAttribute('data-tab'));
+      allPanelIds.forEach(function(id){
+        var p = document.getElementById(id);
+        if (p) p.classList.remove('active');
+      });
+      document.getElementById(target).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
