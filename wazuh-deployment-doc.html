@@ -198,6 +198,12 @@
       <a href="#workflow">Alert Workflow</a>
       <a href="#zammad-deployment">Zammad Deployment</a>
       <a href="#integrations">Integrations</a>
+      <a href="#api-deep-dive">API Deep Dive</a>
+      <a href="#impact-metrics">Impact</a>
+      <a href="#detection-walkthrough">Detection Walkthrough</a>
+      <a href="#lessons-learned">Lessons Learned</a>
+      <a href="#visual-assets">Visual Assets</a>
+      <a href="#roadmap">Roadmap</a>
     </nav>
   </div>
 </div>
@@ -666,6 +672,188 @@ graph LR
     </div>
 
     <div class="note"><b>Note —</b> The Zammad integration script and the email SMTP settings both fire independently once the manager assigns severity — this is what makes the "email and log sent at the same time" behavior in Section 04 possible.</div>
+  </section>
+
+  <!-- ============ API DEEP DIVE ============ -->
+  <section id="api-deep-dive">
+    <div class="sec-label">07 / BEHIND THE API CALL</div>
+    <h2>Anatomy of the Zammad Integration Script</h2>
+    <p class="sec-intro">This section walks through what actually happens between an alert being raised and a ticket appearing in Zammad: the raw alert payload, the script that transforms it, and the API call that creates the ticket.</p>
+
+    <h3>1. Raw Alert JSON (from the Wazuh Manager)</h3>
+    <p>When a rule matches, the manager passes the integration script a JSON object describing the event.</p>
+    <pre style="background:#040705; border:1px solid var(--line); border-radius:6px; padding:14px 16px; overflow-x:auto; color:var(--green-bright); font-family:var(--font-mono); font-size:12.8px; line-height:1.6;">{
+  "rule": {
+    "level": 10,
+    "description": "Multiple SSH authentication failures",
+    "id": "5712"
+  },
+  "agent": {
+    "id": "003",
+    "name": "web-server-01",
+    "ip": "10.0.2.15"
+  },
+  "full_log": "sshd[2233]: Failed password for root from 203.0.113.44",
+  "timestamp": "2026-09-26T09:14:02.331+0000"
+}</pre>
+
+    <h3>2. Integration Script — Building the Ticket Payload</h3>
+    <p>The custom script (Python, invoked by the manager) reads that JSON from stdin, maps it to Zammad's ticket schema, and posts it to the API.</p>
+    <pre style="background:#040705; border:1px solid var(--line); border-radius:6px; padding:14px 16px; overflow-x:auto; color:var(--green-bright); font-family:var(--font-mono); font-size:12.8px; line-height:1.6;">import sys, json, requests
+
+alert = json.load(open(sys.argv[1]))
+api_key = sys.argv[2]
+
+payload = {
+    "title": f"[Wazuh] {alert['rule']['description']}",
+    "group": "SOC",
+    "customer_id": "guess:soc-alerts@example.com",
+    "article": {
+        "subject": alert['rule']['description'],
+        "body": f"Agent: {alert['agent']['name']} ({alert['agent']['ip']})\n"
+                f"Rule ID: {alert['rule']['id']}  Level: {alert['rule']['level']}\n"
+                f"Log: {alert['full_log']}\n"
+                f"Time: {alert['timestamp']}",
+        "type": "note",
+        "internal": False,
+    },
+    "priority_id": 3 if alert['rule']['level'] >= 12 else 2,
+}
+
+requests.post(
+    "https://<zammad-host>/api/v1/tickets",
+    headers={"Authorization": f"Token token={api_key}"},
+    json=payload,
+)</pre>
+
+    <h3>3. Before vs. After</h3>
+    <table>
+      <tr><th>Stage</th><th>State</th></tr>
+      <tr><td>Before</td><td>Alert exists only in the Wazuh dashboard; no ticket, no assignment, no SLA clock running.</td></tr>
+      <tr><td>After</td><td>A Zammad ticket exists automatically — titled with the rule description, tagged to the SOC group, priority set from severity, and ready for L1/L2 assignment.</td></tr>
+    </table>
+    <div class="note"><b>Note —</b> Drop your own before/after dashboard screenshots here once you capture them — a side-by-side of the Wazuh alert and the resulting Zammad ticket makes this section land much harder on LinkedIn.</div>
+  </section>
+
+  <!-- ============ IMPACT / METRICS ============ -->
+  <section id="impact-metrics">
+    <div class="sec-label">08 / IMPACT &amp; METRICS</div>
+    <h2>What Automation Actually Saves</h2>
+    <p class="sec-intro">The value of this pipeline isn't the integration itself — it's the time and consistency it removes from the manual process. The figures below are illustrative; replace them with your own measured numbers once you have real triage data.</p>
+
+    <table>
+      <tr><th>Step</th><th>Manual Process</th><th>Automated Pipeline</th></tr>
+      <tr><td>Alert noticed</td><td>Analyst checks dashboard periodically (minutes to hours)</td><td>Instant — email fires the moment severity is assigned</td></tr>
+      <tr><td>Ticket created</td><td>Analyst manually opens Zammad and logs the incident (~5–10 min)</td><td>Automatic, &lt; 1 second after the alert</td></tr>
+      <tr><td>Assigned to analyst</td><td>Manual lookup of who's free / experienced enough</td><td>Rule-based routing by severity + experience level</td></tr>
+      <tr><td>Estimated mean time to ticket</td><td>~15–20 minutes</td><td>Near-instant</td></tr>
+    </table>
+    <div class="note"><b>Note —</b> Treat these as placeholder estimates for illustrating the "before automation" baseline — swap in your own timed comparisons if you run one, since real numbers will carry far more weight than estimated ones.</div>
+  </section>
+
+  <!-- ============ DETECTION WALKTHROUGH ============ -->
+  <section id="detection-walkthrough">
+    <div class="sec-label">09 / DETECTION WALKTHROUGH</div>
+    <h2>Case Study: SSH Brute-Force Detection</h2>
+    <p class="sec-intro">A single, concrete example of the full pipeline in action — from a raw system log to a ticket landing on an analyst's desk.</p>
+
+    <div class="steps">
+      <div class="step">
+        <h5>1 — Raw Log (collected by the agent)</h5>
+        <pre>Sep 26 09:14:02 web-server-01 sshd[2233]: Failed password for root from 203.0.113.44 port 51422 ssh2</pre>
+      </div>
+      <div class="step">
+        <h5>2 — Decoder (structures the log)</h5>
+        <p>The <code>sshd</code> decoder extracts fields from the raw text into structured data the rule engine can match against.</p>
+        <pre>decoder: "sshd"
+srcip:   "203.0.113.44"
+user:    "root"
+action:  "failed_password"</pre>
+      </div>
+      <div class="step">
+        <h5>3 — Rule Match</h5>
+        <p>Wazuh's default ruleset already covers this case — repeated failures from the same source trigger a frequency-based rule.</p>
+        <pre>rule id: 5712
+description: "sshd: brute force trying to get access to the system."
+frequency: 8 failed attempts within 120s</pre>
+      </div>
+      <div class="step">
+        <h5>4 — Severity Assigned</h5>
+        <pre>level: 10  →  classified as HIGH</pre>
+      </div>
+      <div class="step">
+        <h5>5 — Dispatch</h5>
+        <p>Both actions fire immediately: an email lands in the SOC inbox, and the same alert is posted to Zammad, which raises a ticket and routes it to an available L1/L2 analyst.</p>
+      </div>
+    </div>
+    <div class="note"><b>Note —</b> Swap in your own dashboard screenshots at each numbered stage above (raw log view, decoded fields, rule hit, the resulting email, the resulting ticket) — that sequence is exactly what makes a "show, don't tell" LinkedIn post work.</div>
+  </section>
+
+  <!-- ============ LESSONS LEARNED ============ -->
+  <section id="lessons-learned">
+    <div class="sec-label">10 / LESSONS LEARNED</div>
+    <h2>What I'd Do Differently</h2>
+    <p class="sec-intro">A few honest notes from building this pipeline — the parts that looked simple on paper but needed real tuning in practice.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="tag">Challenge</div>
+        <h4>Severity threshold tuning</h4>
+        <p>Setting the email/ticket threshold too low buried the team in noise; too high and real incidents got missed. Took several rounds of adjustment against real traffic to land on a workable level.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Challenge</div>
+        <h4>Alert fatigue</h4>
+        <p>Once ticket creation is automatic, it's tempting to route everything. Left unchecked, that trains analysts to skim rather than investigate — the fix was tightening rule-level filters, not just routing logic.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Challenge</div>
+        <h4>L1/L2 misrouting</h4>
+        <p>Severity alone isn't always a good proxy for required experience — some "Medium" alerts turned out to need L2 context. Routing logic needed a manual override path, not just a fixed rule.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Challenge</div>
+        <h4>Silent integration failures</h4>
+        <p>Early on, a failed Zammad API call (bad token, network blip) failed silently — the alert existed in Wazuh but never became a ticket. Added logging and a fallback email so failures are never invisible.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Challenge</div>
+        <h4>Testing before production</h4>
+        <p>Rule and severity changes were initially tested directly against the live pipeline, which risked flooding real analysts. Switched to a staging Zammad instance for testing new rules before promoting them.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VISUAL ASSETS ============ -->
+  <section id="visual-assets">
+    <div class="sec-label">11 / VISUAL ASSET NOTES</div>
+    <h2>Diagram Carousel — Slide Captions</h2>
+    <p class="sec-intro">The architecture diagrams already in this document (Fig. 1–3) map directly to a LinkedIn carousel. Suggested slide breakdown and captions below.</p>
+
+    <table>
+      <tr><th>Slide</th><th>Content</th><th>Caption</th></tr>
+      <tr><td>1</td><td>Title slide</td><td>"How an alert becomes a ticket — automatically."</td></tr>
+      <tr><td>2</td><td>Fig. 1 — Data flow</td><td>"It starts at the endpoint: internal system data + threat intel, collected by the Wazuh agent."</td></tr>
+      <tr><td>3</td><td>Fig. 1 — zoom on manager</td><td>"Rules and decoders classify every event as Critical, High, or Medium."</td></tr>
+      <tr><td>4</td><td>Fig. 2 — Workflow</td><td>"Severity triggers two things at once: an email, and a log sent to Zammad."</td></tr>
+      <tr><td>5</td><td>Fig. 2 — assignment</td><td>"Tickets route to L1 or L2 based on experience and severity — no manual triage."</td></tr>
+      <tr><td>6</td><td>Fig. 3 — Integration</td><td>"Two paths, one trigger: a custom API script for Zammad, native SMTP for email."</td></tr>
+      <tr><td>7</td><td>Closing slide</td><td>"Full documentation and code in the comments."</td></tr>
+    </table>
+    <div class="note"><b>Note —</b> Export Fig. 1–3 from this page as individual images (screenshot or SVG export) for the carousel — keeping the same black/green theme across slides keeps the series visually consistent with this documentation.</div>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section id="roadmap">
+    <div class="sec-label">12 / WHAT'S NEXT</div>
+    <h2>Roadmap</h2>
+    <p class="sec-intro">This pipeline covers detection through ticket assignment. The next phase moves toward response automation.</p>
+    <ul>
+      <li><b style="color:var(--text);">SOAR playbook for auto-blocking IPs</b> — automatically block a source IP at the firewall once a Critical brute-force rule fires repeatedly, without waiting on manual analyst action.</li>
+      <li><b style="color:var(--text);">MISP threat intel integration</b> — pull indicator feeds directly into Wazuh's threat intelligence source so external IOC matching stays current automatically.</li>
+      <li><b style="color:var(--text);">Ticket auto-closure for false positives</b> — feed analyst resolution outcomes back into the severity/rule tuning loop to reduce repeat noise.</li>
+      <li><b style="color:var(--text);">Dashboard for pipeline health</b> — track mean time to ticket, false-positive rate, and L1/L2 load distribution in one view.</li>
+    </ul>
   </section>
 
 </main>
